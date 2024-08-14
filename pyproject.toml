@@ -1,0 +1,87 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ragkit"
+version = "0.1.0"
+description = "A lightweight RAG framework for building document Q&A applications"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+authors = [
+    {name = "Dmitriy Tsarev", email = "tsarevdmit@gmail.com"}
+]
+keywords = [
+    "rag",
+    "retrieval-augmented-generation",
+    "llm",
+    "nlp",
+    "document-qa",
+    "embeddings",
+    "vector-search",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "numpy>=1.21.0",
+    "sentence-transformers>=2.2.0",
+    "faiss-cpu>=1.7.4",
+    "torch>=2.0.0",
+]
+
+[project.optional-dependencies]
+pdf = ["pypdf>=3.0.0"]
+pdf-advanced = ["pdfplumber>=0.9.0"]
+html = ["beautifulsoup4>=4.12"]
+llm = ["transformers>=4.36.0", "accelerate>=0.20.0"]
+ollama = ["requests>=2.28.0"]
+openai = ["openai>=1.0.0"]
+all = [
+    "pypdf>=3.0.0",
+    "pdfplumber>=0.9.0",
+    "beautifulsoup4>=4.12",
+    "transformers>=4.36.0",
+    "accelerate>=0.20.0",
+    "requests>=2.28.0",
+    "openai>=1.0.0",
+]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/IIIDman/ragkit"
+Documentation = "https://github.com/IIIDman/ragkit#readme"
+Repository = "https://github.com/IIIDman/ragkit"
+Issues = "https://github.com/IIIDman/ragkit/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["ragkit*"]
+
+[tool.black]
+line-length = 100
+target-version = ["py39", "py310", "py311", "py312"]
+
+[tool.ruff]
+line-length = 100
+select = ["E", "F", "W", "I", "N"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"

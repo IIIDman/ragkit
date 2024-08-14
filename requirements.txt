@@ -1,0 +1,14 @@
+# Core dependencies
+numpy>=1.21.0
+torch>=2.0.0
+sentence-transformers>=2.2.0
+faiss-cpu>=1.7.4
+
+# Document loaders (optional)
+pypdf>=3.0.0
+
+# LLM backends (optional - pick one or more)
+transformers>=4.36.0
+accelerate>=0.20.0
+# openai>=1.0.0
+# requests>=2.28.0  # for Ollama
