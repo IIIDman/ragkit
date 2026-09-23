@@ -38,6 +38,7 @@ dependencies = [
     "sentence-transformers>=2.2.0",
     "faiss-cpu>=1.7.4",
     "torch>=2.0.0",
+    "snowballstemmer>=2.2.0",
 ]
 
 [project.optional-dependencies]

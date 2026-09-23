@@ -12,7 +12,8 @@ Usage:
 
 import argparse
 
-from ragkit import FAISSStore, SentenceTransformerEmbeddings, SimilarityRetriever
+from ragkit import BM25Retriever, FAISSStore, SentenceTransformerEmbeddings, SimilarityRetriever
+from ragkit.retrievers import simple_tokenize
 from ragkit.eval import evaluate, format_table, load_beir
 
 
@@ -38,6 +39,18 @@ def main():
             data.queries,
             data.qrels,
             name=f"dense ({args.embedding_model})",
+        ),
+        evaluate(
+            BM25Retriever(chunks, top_k=args.depth, tokenizer=simple_tokenize),
+            data.queries,
+            data.qrels,
+            name="bm25 (no stemming)",
+        ),
+        evaluate(
+            BM25Retriever(chunks, top_k=args.depth),
+            data.queries,
+            data.qrels,
+            name="bm25",
         ),
     ]
 

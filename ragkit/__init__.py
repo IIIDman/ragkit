@@ -57,6 +57,7 @@ from .vectorstores import (
 from .retrievers import (
     SimilarityRetriever,
     MMRRetriever,
+    BM25Retriever,
 )
 
 # LLMs
@@ -107,6 +108,7 @@ __all__ = [
     # Retrievers
     "SimilarityRetriever",
     "MMRRetriever",
+    "BM25Retriever",
     
     # LLMs
     "HuggingFaceLLM",

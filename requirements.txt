@@ -3,6 +3,7 @@ numpy>=1.21.0
 torch>=2.0.0
 sentence-transformers>=2.2.0
 faiss-cpu>=1.7.4
+snowballstemmer>=2.2.0
 
 # Document loaders (optional)
 pypdf>=3.0.0
