@@ -40,7 +40,10 @@ class SentenceTransformerEmbeddings:
     @property
     def dimension(self) -> int:
         """Get embedding dimension."""
-        return self.model.get_sentence_embedding_dimension()
+        # Renamed in sentence-transformers 5.x; keep the old name for older versions
+        getter = getattr(self.model, "get_embedding_dimension", None) or \
+            self.model.get_sentence_embedding_dimension
+        return getter()
     
     def embed(self, texts: List[str]) -> np.ndarray:
         """Generate embeddings for a list of texts."""
