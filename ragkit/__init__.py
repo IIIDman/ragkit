@@ -60,10 +60,14 @@ from .retrievers import (
     BM25Retriever,
     HybridRetriever,
     RerankRetriever,
+    GuardedRetriever,
 )
 
 # Rerankers
 from .rerankers import CrossEncoderReranker
+
+# Guards
+from .guards import InjectionGuard
 
 # LLMs
 from .llms import (
@@ -116,9 +120,13 @@ __all__ = [
     "BM25Retriever",
     "HybridRetriever",
     "RerankRetriever",
+    "GuardedRetriever",
     
     # Rerankers
     "CrossEncoderReranker",
+    
+    # Guards
+    "InjectionGuard",
     
     # LLMs
     "HuggingFaceLLM",
