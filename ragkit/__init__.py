@@ -58,6 +58,7 @@ from .retrievers import (
     SimilarityRetriever,
     MMRRetriever,
     BM25Retriever,
+    HybridRetriever,
 )
 
 # LLMs
@@ -109,6 +110,7 @@ __all__ = [
     "SimilarityRetriever",
     "MMRRetriever",
     "BM25Retriever",
+    "HybridRetriever",
     
     # LLMs
     "HuggingFaceLLM",

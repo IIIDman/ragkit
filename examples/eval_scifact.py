@@ -12,9 +12,15 @@ Usage:
 
 import argparse
 
-from ragkit import BM25Retriever, FAISSStore, SentenceTransformerEmbeddings, SimilarityRetriever
-from ragkit.retrievers import simple_tokenize
+from ragkit import (
+    BM25Retriever,
+    FAISSStore,
+    HybridRetriever,
+    SentenceTransformerEmbeddings,
+    SimilarityRetriever,
+)
 from ragkit.eval import evaluate, format_table, load_beir
+from ragkit.retrievers import simple_tokenize
 
 
 def main():
@@ -33,9 +39,12 @@ def main():
     print("Embedding corpus...")
     store.add(chunks)
 
+    dense = SimilarityRetriever(store, top_k=args.depth)
+    bm25 = BM25Retriever(chunks, top_k=args.depth)
+
     results = [
         evaluate(
-            SimilarityRetriever(store, top_k=args.depth),
+            dense,
             data.queries,
             data.qrels,
             name=f"dense ({args.embedding_model})",
@@ -46,11 +55,18 @@ def main():
             data.qrels,
             name="bm25 (no stemming)",
         ),
+        evaluate(bm25, data.queries, data.qrels, name="bm25"),
         evaluate(
-            BM25Retriever(chunks, top_k=args.depth),
+            HybridRetriever([dense, bm25], top_k=args.depth, fusion="rrf"),
             data.queries,
             data.qrels,
-            name="bm25",
+            name="hybrid, RRF",
+        ),
+        evaluate(
+            HybridRetriever([dense, bm25], top_k=args.depth),
+            data.queries,
+            data.qrels,
+            name="hybrid, min-max score fusion",
         ),
     ]
 
