@@ -110,3 +110,35 @@ def test_save_load_restores_settings_and_bm25(tmp_path):
 
     overridden = RAGKit.load(str(tmp_path / "index"), retrieval="dense")
     assert overridden.retrieval == "dense"
+
+
+class ToyDoclingLoader:
+    """Returns two pre-chunked documents per file, longer than chunk_size."""
+
+    SUPPORTED_EXTENSIONS = (".pdf", ".docx")
+
+    def __init__(self, tokenizer_model=None):
+        self.tokenizer_model = tokenizer_model
+
+    def load(self, path):
+        text = "fish " * 200
+        return [
+            ragkit_module.Document(content=text, metadata={"source": path, "pre_chunked": True}),
+            ragkit_module.Document(content="cat table row", metadata={"source": path, "pre_chunked": True}),
+        ]
+
+
+def test_docling_parser_keeps_pre_chunked_documents(monkeypatch, tmp_path):
+    monkeypatch.setattr(ragkit_module, "DoclingLoader", ToyDoclingLoader)
+    (tmp_path / "paper.pdf").write_bytes(b"%PDF")
+    (tmp_path / "slides.docx").write_bytes(b"PK")
+
+    rag = RAGKit(parser="docling", chunk_size=100)
+    assert rag._loaders[".pdf"].tokenizer_model == "sentence-transformers/all-MiniLM-L6-v2"
+    assert rag.add_document(str(tmp_path / "paper.pdf")) == 2  # not re-split to 100 chars
+    assert rag.add_directory(str(tmp_path), glob="*.docx") == 2
+
+
+def test_invalid_parser():
+    with pytest.raises(ValueError):
+        RAGKit(parser="ocr-magic")

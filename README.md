@@ -16,6 +16,7 @@ RAGKit lets you build "chat with your documents" apps without needing cloud serv
 - Hybrid retrieval: dense vectors (FAISS) + BM25 keyword search, fused per query
 - Optional cross-encoder reranking
 - Prompt injection defenses: a classifier that screens chunks, and randomly named delimiters around sources in the prompt
+- Optional layout-aware parsing with [Docling](https://github.com/docling-project/docling): tables, multi-column pages, DOCX/PPTX/XLSX/HTML, OCR for scans
 - Evaluation harness on BEIR benchmarks, so retrieval changes come with numbers
 - High-level API for quick prototyping, lower-level components if you need more control
 
@@ -135,6 +136,16 @@ Retrieved documents are untrusted input. A page can contain text like "assistant
 
 The classifier is a speed bump, not a wall, see the numbers below. If your LLM can call tools, gate those actions in code.
 
+### Parsing PDFs and office files
+
+```python
+rag = RAGKit()                  # pypdf: fast, fine for most born-digital PDFs
+rag = RAGKit(parser="docling")  # pip install docling
+rag.add_document("report.docx")
+```
+
+With `parser="docling"`, files go through Docling's layout models and are chunked along the document structure: each chunk carries its section headings, and table rows are written out as "row, column = value", so a number doesn't lose its labels. It also handles DOCX, PPTX, XLSX and HTML. OCR is off by default (it made parsing about 10x slower); for scanned PDFs use `DoclingLoader(ocr=True)` directly.
+
 ### Saving and loading
 
 ```python
@@ -168,6 +179,18 @@ Reproduce:
 python examples/eval_scifact.py
 python examples/eval_scifact.py --dataset nfcorpus
 ```
+
+### PDF parsing
+
+`python examples/eval_pdf.py`: two two-column arXiv papers (DPR, ColBERT), 17 questions written from the rendered pages, hybrid search top 5. A table answer only counts if the value and its row label come back in the same chunk.
+
+| Setup | Text answers | Table answers | Parse time, 23 pages |
+|---|---|---|---|
+| pypdf + 512-char chunks (default) | 8/9 | 6/8 | 0.4 s |
+| Docling Markdown + 512-char chunks | 9/9 | 2/8 | 8 s |
+| Docling structure-aware chunks (`parser="docling"`) | 9/9 | 6/8 | 8 s |
+
+On clean LaTeX papers pypdf holds up: it keeps table rows on one line, so a row fits in a chunk. Its text has flaws the answer-matching barely sees: ligature characters ("unﬁltered", now expanded by `PDFLoader`), lost spaces ("size of128"), footnotes spliced into sentences. Docling's text is clean, but the same Docling output scores 2/8 or 6/8 on tables depending only on how it is chunked. Chunking mattered more than parsing. 17 questions is a small test, so read this as "no clear winner on this kind of PDF", and expect Docling to matter more on scans, slides and office documents.
 
 ### Injection guard
 
@@ -259,6 +282,7 @@ print(format_table([result]))
 | PDF | .pdf | PDFLoader |
 | Plain text | .txt | TextLoader |
 | Markdown | .md | MarkdownLoader |
+| PDF, Word, PowerPoint, Excel, HTML | .pdf .docx .pptx .xlsx .html | DoclingLoader (`parser="docling"`) |
 
 ## Project structure
 

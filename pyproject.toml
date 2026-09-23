@@ -44,6 +44,7 @@ dependencies = [
 [project.optional-dependencies]
 pdf = ["pypdf>=3.0.0"]
 pdf-advanced = ["pdfplumber>=0.9.0"]
+docling = ["docling>=2.0"]
 html = ["beautifulsoup4>=4.12"]
 llm = ["transformers>=4.36.0", "accelerate>=0.20.0"]
 ollama = ["requests>=2.28.0"]

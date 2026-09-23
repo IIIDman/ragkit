@@ -11,7 +11,7 @@ from typing import Optional, List, Union
 import pickle
 
 from .core import Document, Chunk, Answer
-from .loaders import TextLoader, PDFLoader, MarkdownLoader, DirectoryLoader
+from .loaders import TextLoader, PDFLoader, MarkdownLoader, DirectoryLoader, DoclingLoader
 from .splitters import RecursiveCharacterSplitter
 from .embeddings import SentenceTransformerEmbeddings
 from .vectorstores import FAISSStore, SimpleStore
@@ -24,6 +24,14 @@ from .chains import QAChain
 logger = logging.getLogger(__name__)
 
 RETRIEVAL_MODES = ("hybrid", "dense", "bm25")
+PARSERS = ("pypdf", "docling")
+
+
+def _hf_model_id(name: str) -> str:
+    """Short sentence-transformers names like 'all-MiniLM-L6-v2' live under that org."""
+    if "/" in name or Path(name).exists():
+        return name
+    return f"sentence-transformers/{name}"
 
 
 class _BM25View:
@@ -84,6 +92,7 @@ class RAGKit:
         guard: bool = False,
         guard_threshold: float = 0.5,
         spotlight: bool = True,
+        parser: str = "pypdf",
     ):
         """
         Initialize RAGKit.
@@ -109,9 +118,13 @@ class RAGKit:
             guard_threshold: Injection probability at which a chunk is skipped
             spotlight: Wrap sources in randomly named tags in the prompt and
                 tell the LLM not to follow instructions inside them
+            parser: "pypdf" (fast, default) or "docling" (layout-aware, keeps
+                tables, adds DOCX/PPTX/XLSX/HTML support, needs pip install docling)
         """
         if retrieval not in RETRIEVAL_MODES:
             raise ValueError(f"Unknown retrieval: {retrieval}. Use one of {RETRIEVAL_MODES}")
+        if parser not in PARSERS:
+            raise ValueError(f"Unknown parser: {parser}. Use one of {PARSERS}")
 
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
@@ -123,6 +136,14 @@ class RAGKit:
         self.rerank_depth = rerank_depth
         self.rerank_alpha = rerank_alpha
         self.spotlight = spotlight
+        self.parser = parser
+        
+        # One loader instance per file type
+        self._loaders = {ext: loader() for ext, loader in self.LOADER_MAP.items()}
+        if parser == "docling":
+            docling = DoclingLoader(tokenizer_model=_hf_model_id(embedding_model))
+            for ext in DoclingLoader.SUPPORTED_EXTENSIONS:
+                self._loaders[ext] = docling
         
         # Initialize components
         self._embeddings = SentenceTransformerEmbeddings(
@@ -197,6 +218,14 @@ class RAGKit:
             spotlight=self.spotlight,
         )
     
+    def _split(self, documents: List[Document]) -> List[Chunk]:
+        """Split documents into chunks. Loaders that chunk themselves are kept as is."""
+        pre_chunked = [d for d in documents if d.metadata.get("pre_chunked")]
+        to_split = [d for d in documents if not d.metadata.get("pre_chunked")]
+        chunks = self._splitter.split(to_split) if to_split else []
+        chunks += [Chunk(content=d.content, metadata=dict(d.metadata)) for d in pre_chunked]
+        return chunks
+    
     def _index(self, chunks: List[Chunk]) -> int:
         """Screen (if guarded) and add chunks to every index. Returns chunks added."""
         if self._guard and chunks:
@@ -246,18 +275,17 @@ class RAGKit:
         
         # Select loader based on extension
         suffix = path.suffix.lower()
-        if suffix not in self.LOADER_MAP:
+        if suffix not in self._loaders:
             raise ValueError(
                 f"Unsupported file type: {suffix}. "
-                f"Supported: {list(self.LOADER_MAP.keys())}"
+                f"Supported: {list(self._loaders.keys())}"
             )
         
         # Load document
-        loader = self.LOADER_MAP[suffix]()
-        documents = loader.load(str(path))
+        documents = self._loaders[suffix].load(str(path))
         
         # Split into chunks and index
-        chunks = self._splitter.split(documents)
+        chunks = self._split(documents)
         added = self._index(chunks)
         
         # Track documents
@@ -297,11 +325,11 @@ class RAGKit:
         Returns:
             Number of chunks added
         """
-        loader = DirectoryLoader(glob_pattern=glob, recursive=recursive)
+        loader = DirectoryLoader(glob_pattern=glob, recursive=recursive, loaders=self._loaders)
         documents = loader.load(directory_path)
         
         # Split into chunks and index
-        chunks = self._splitter.split(documents)
+        chunks = self._split(documents)
         added = self._index(chunks)
         
         # Track documents
@@ -379,6 +407,7 @@ class RAGKit:
             "rerank_depth": self.rerank_depth,
             "rerank_alpha": self.rerank_alpha,
             "spotlight": self.spotlight,
+            "parser": self.parser,
             "num_documents": len(self._documents),
             "num_chunks": len(self._vectorstore),
         }
@@ -433,6 +462,7 @@ class RAGKit:
             "rerank_depth": config.get("rerank_depth", 20),
             "rerank_alpha": config.get("rerank_alpha", 1.0),
             "spotlight": config.get("spotlight", True),
+            "parser": config.get("parser", "pypdf"),
         }
         settings.update(overrides)
         rag = cls(llm=llm, llm_backend=llm_backend, device=device, **settings)

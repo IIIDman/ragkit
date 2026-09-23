@@ -32,6 +32,7 @@ from .loaders import (
     PDFPlumberLoader,
     MarkdownLoader,
     DirectoryLoader,
+    DoclingLoader,
 )
 
 # Splitters
@@ -100,6 +101,7 @@ __all__ = [
     "PDFPlumberLoader",
     "MarkdownLoader",
     "DirectoryLoader",
+    "DoclingLoader",
     
     # Splitters
     "RecursiveCharacterSplitter",

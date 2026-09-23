@@ -4,6 +4,7 @@ from .text import TextLoader
 from .pdf import PDFLoader, PDFPlumberLoader
 from .markdown import MarkdownLoader
 from .directory import DirectoryLoader
+from .docling import DoclingLoader
 
 __all__ = [
     "TextLoader",
@@ -11,4 +12,5 @@ __all__ = [
     "PDFPlumberLoader",
     "MarkdownLoader",
     "DirectoryLoader",
+    "DoclingLoader",
 ]

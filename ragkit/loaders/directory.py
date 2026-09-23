@@ -1,7 +1,7 @@
 """Directory loader for batch loading multiple files."""
 
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 from ..core import Document
 from .text import TextLoader
 from .pdf import PDFLoader
@@ -23,11 +23,20 @@ class DirectoryLoader:
         self,
         glob_pattern: str = "**/*",
         recursive: bool = True,
-        silent_errors: bool = True
+        silent_errors: bool = True,
+        loaders: Optional[Dict[str, object]] = None,
     ):
+        """
+        Args:
+            glob_pattern: Which files to load
+            recursive: Search subdirectories
+            silent_errors: Warn and skip files that fail to load
+            loaders: {extension: loader instance}, overrides the default map
+        """
         self.glob_pattern = glob_pattern
         self.recursive = recursive
         self.silent_errors = silent_errors
+        self.loaders = loaders
     
     def load(self, directory_path: str) -> List[Document]:
         """Load all supported files from a directory."""
@@ -53,9 +62,15 @@ class DirectoryLoader:
             
             suffix = file_path.suffix.lower()
             
-            if suffix in self.LOADER_MAP:
+            if self.loaders is not None:
+                loader = self.loaders.get(suffix)
+            elif suffix in self.LOADER_MAP:
+                loader = self.LOADER_MAP[suffix]()
+            else:
+                loader = None
+            
+            if loader is not None:
                 try:
-                    loader = self.LOADER_MAP[suffix]()
                     docs = loader.load(str(file_path))
                     documents.extend(docs)
                 except Exception as e:
