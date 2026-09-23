@@ -14,8 +14,10 @@ import argparse
 
 from ragkit import (
     BM25Retriever,
+    CrossEncoderReranker,
     FAISSStore,
     HybridRetriever,
+    RerankRetriever,
     SentenceTransformerEmbeddings,
     SimilarityRetriever,
 )
@@ -28,6 +30,8 @@ def main():
     parser.add_argument("--dataset", default="scifact")
     parser.add_argument("--embedding-model", default="all-MiniLM-L6-v2")
     parser.add_argument("--depth", type=int, default=100, help="Chunks retrieved per query")
+    parser.add_argument("--rerank-model", default="cross-encoder/ms-marco-MiniLM-L6-v2")
+    parser.add_argument("--rerank-depth", type=int, default=20, help="Candidates sent to the reranker")
     args = parser.parse_args()
 
     data = load_beir(args.dataset)
@@ -67,6 +71,16 @@ def main():
             data.queries,
             data.qrels,
             name="hybrid, min-max score fusion",
+        ),
+        evaluate(
+            RerankRetriever(
+                HybridRetriever([dense, bm25], top_k=args.rerank_depth),
+                CrossEncoderReranker(args.rerank_model),
+                top_k=args.rerank_depth,
+            ),
+            data.queries,
+            data.qrels,
+            name=f"hybrid + rerank top {args.rerank_depth} ({args.rerank_model.split('/')[-1]})",
         ),
     ]
 

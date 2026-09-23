@@ -33,6 +33,15 @@ def reciprocal_rank_fusion(
     return fused
 
 
+def min_max_normalize(scores: List[float]) -> List[float]:
+    """Rescale scores to [0, 1]. All-equal scores map to 1.0."""
+    if not scores:
+        return []
+    low, high = min(scores), max(scores)
+    span = high - low
+    return [(s - low) / span if span > 0 else 1.0 for s in scores]
+
+
 def min_max_fusion(
     scored_lists: List[List[Tuple[str, float]]],
     weights: Optional[List[float]] = None,
@@ -53,13 +62,8 @@ def min_max_fusion(
     weights = weights or [1.0] * len(scored_lists)
     fused: Dict[str, float] = {}
     for scored, weight in zip(scored_lists, weights):
-        if not scored:
-            continue
-        values = [s for _, s in scored]
-        low, high = min(values), max(values)
-        span = high - low
-        for key, score in scored:
-            norm = (score - low) / span if span > 0 else 1.0
+        norms = min_max_normalize([score for _, score in scored])
+        for (key, _), norm in zip(scored, norms):
             fused[key] = fused.get(key, 0.0) + weight * norm
     return fused
 
