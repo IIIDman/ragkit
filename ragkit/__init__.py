@@ -15,7 +15,7 @@ You can also use the component classes directly for more control -
 see the README for examples.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __author__ = "Dmitriy Tsarev"
 __license__ = "MIT"
 

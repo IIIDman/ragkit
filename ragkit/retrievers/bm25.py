@@ -77,22 +77,24 @@ class BM25Retriever:
         self._doc_lens = np.zeros(0, dtype=np.float32)
         self._postings: Dict[str, Tuple[np.ndarray, np.ndarray]] = {}
         self._idf: Dict[str, float] = {}
+        self._dirty = False
 
         if chunks:
             self.add(chunks)
 
     def add(self, chunks: List[Chunk]) -> None:
-        """Tokenize and index chunks."""
+        """Tokenize and queue chunks. The index is rebuilt on the next search."""
         if not chunks:
             return
         for chunk in chunks:
             self._doc_tfs.append(Counter(self.tokenizer(chunk.content)))
         self._chunks.extend(chunks)
-        self._build_index()
+        # Adding docs changes N, df and avgdl for every term, so the index is
+        # rebuilt, but lazily: many add() calls in a row cost one rebuild
+        self._dirty = True
 
     def _build_index(self) -> None:
-        # Inverted index: term -> (doc indices, term counts in those docs).
-        # Rebuilt from the per-doc counts, since adding docs changes N, df and avgdl.
+        # Inverted index: term -> (doc indices, term counts in those docs)
         doc_ids: Dict[str, List[int]] = {}
         tfs: Dict[str, List[int]] = {}
         for i, counts in enumerate(self._doc_tfs):
@@ -110,12 +112,15 @@ class BM25Retriever:
             term: math.log(1 + (n - len(ids) + 0.5) / (len(ids) + 0.5))
             for term, ids in doc_ids.items()
         }
+        self._dirty = False
 
     def score(self, query: str) -> np.ndarray:
         """BM25 score of every indexed chunk for the query."""
         scores = np.zeros(len(self._chunks), dtype=np.float32)
         if not self._chunks:
             return scores
+        if self._dirty:
+            self._build_index()
 
         avgdl = self._doc_lens.mean() or 1.0
         # Unique terms: repeating a word in the query does not boost it
@@ -127,26 +132,32 @@ class BM25Retriever:
             scores[ids] += self._idf[term] * tf * (self.k1 + 1) / (tf + self.k1 * length_norm)
         return scores
 
-    def retrieve_with_scores(self, query: str) -> List[Tuple[Chunk, float]]:
+    def retrieve_with_scores(
+        self, query: str, top_k: Optional[int] = None
+    ) -> List[Tuple[Chunk, float]]:
         """
         Retrieve chunks with BM25 scores, best first.
 
         Chunks sharing no terms with the query are never returned.
+
+        Args:
+            query: Query string
+            top_k: Override the retriever's top_k for this call
         """
         scores = self.score(query)
         matched = np.flatnonzero(scores > 0)
         if len(matched) == 0:
             return []
 
-        k = min(self.top_k, len(matched))
+        k = min(top_k or self.top_k, len(matched))
         # argpartition finds the top k in O(n), then only those k get sorted
         top = matched[np.argpartition(-scores[matched], k - 1)[:k]]
         top = top[np.argsort(-scores[top])]
         return [(self._chunks[i], float(scores[i])) for i in top]
 
-    def retrieve(self, query: str) -> List[Chunk]:
+    def retrieve(self, query: str, top_k: Optional[int] = None) -> List[Chunk]:
         """Retrieve the top_k chunks for a query."""
-        return [chunk for chunk, _ in self.retrieve_with_scores(query)]
+        return [chunk for chunk, _ in self.retrieve_with_scores(query, top_k)]
 
     def save(self, path: str) -> None:
         """Save chunks and parameters. The index is rebuilt on load."""
